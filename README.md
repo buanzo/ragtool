@@ -4,11 +4,13 @@ RAGTool is a versatile Python-based utility designed for creating, querying, and
 
 ## Key Features
 
-*Collection Management:* Easily create, delete, and list collections of documents.
-*Document Retrieval:* Perform advanced queries on collections using retrieval-augmented generation techniques.
-*Extension Management:* Check and enable the PostgreSQL pgvector extension for enhanced functionality.
-*Flexible Configuration:* Configure OpenAI and PostgreSQL settings through environment variables for greater flexibility.
-Requirements
+* *Collection Management:* Easily create, delete, and list collections of documents.
+* *Document Retrieval:* Perform advanced queries on collections using retrieval-augmented generation techniques.
+* *Extension Management:* Check and enable the PostgreSQL pgvector extension for enhanced functionality.
+* *Flexible Configuration:* Configure OpenAI and PostgreSQL settings through environment variables for greater flexibility.
+
+
+## Requirements
 
 To get started with RAGTool, make sure you have the following prerequisites:
 
