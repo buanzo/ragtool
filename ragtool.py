@@ -9,7 +9,6 @@ import argparse
 import psycopg2
 import json
 import sys
-from pprint import pprint
 
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_community.document_loaders import DirectoryLoader
