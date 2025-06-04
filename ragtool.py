@@ -25,6 +25,16 @@ def get_pgsql_connection_string(env_var_name='RAGTOOL_PGSQL_CONNECTION_STRING'):
     return os.environ[env_var_name]
 
 
+def load_openai_api_key(env_var_name='RAGTOOL_OPENAI_API_KEY'):
+    """Assign the specified environment variable to OPENAI_API_KEY."""
+    key = os.environ.get(env_var_name)
+    if not key:
+        raise EnvironmentError(
+            f"Environment variable '{env_var_name}' is not defined."
+        )
+    os.environ['OPENAI_API_KEY'] = key
+
+
 def enable_pgvector_extension(connection_string):
     try:
         conn = psycopg2.connect(connection_string)
@@ -254,7 +264,6 @@ def main():
     # Command Handlers
     if args.command == 'create':
         create_pgvector_collection(connection_string, args.collection_name, args.source, recreate=args.recreate)
-
     elif args.command == 'query':
         query_pgvector_collection(connection_string, args.collection_name, args.query, chain_type=args.chain_type)
 
