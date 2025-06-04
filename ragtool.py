@@ -9,7 +9,6 @@ import argparse
 import psycopg2
 import json
 import sys
-from pprint import pprint
 
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_community.document_loaders import DirectoryLoader
@@ -191,69 +190,99 @@ def list_pgvector_collections(connection_string):
         print(f"An error occurred while listing collections: {e}")
 
 
-# Argument Parser
-parser = argparse.ArgumentParser(description="RAGTool: Create, query and manage collections of documents using Retrieval-Augmented Generation via PGSQL pgvector and OpenAI. Authored by Buanzo.")
-parser.add_argument('--openai-env', type=str, default='RAGTOOL_OPENAI_API_KEY', help='Environment variable for OpenAI API key.')
-parser.add_argument('--pgenv', type=str, default='RAGTOOL_PGSQL_CONNECTION_STRING', help='Environment variable for PostgreSQL connection string.')
-parser.add_argument('-v','--verbose', type=bool, default=False, help='Be more verbose.')
-subparsers = parser.add_subparsers(dest='command')
+def main():
+    """Entry point for the ragtool CLI."""
 
-# Create collection subcommand
-create_parser = subparsers.add_parser('create', help='Create a new collection.')
-create_parser.add_argument('-C', '--collection-name', required=True, type=str, help='Name of the collection to create.')
-create_parser.add_argument('-s', '--source', required=True, type=str, help='Path to folder containing documents.')
-create_parser.add_argument('--recreate', action='store_true', help='Flag to recreate the collection if it already exists.')
+    # Argument Parser
+    parser = argparse.ArgumentParser(
+        description=(
+            "RAGTool: Create, query and manage collections of documents using "
+            "Retrieval-Augmented Generation via PGSQL pgvector and OpenAI. "
+            "Authored by Buanzo."
+        )
+    )
+    parser.add_argument(
+        '--openai-env',
+        type=str,
+        default='RAGTOOL_OPENAI_API_KEY',
+        help='Environment variable for OpenAI API key.'
+    )
+    parser.add_argument(
+        '--pgenv',
+        type=str,
+        default='RAGTOOL_PGSQL_CONNECTION_STRING',
+        help='Environment variable for PostgreSQL connection string.'
+    )
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        type=bool,
+        default=False,
+        help='Be more verbose.'
+    )
+    subparsers = parser.add_subparsers(dest='command')
 
-# Query collection subcommand
-query_parser = subparsers.add_parser('query', help='Query an existing collection.')
-query_parser.add_argument('-C', '--collection-name', required=True, type=str, help='Name of the collection to RAG query.')
-query_parser.add_argument('--query', required=True, type=str, help='Query to run against the collection.')
-query_parser.add_argument('--chain-type', default='stuff', choices=['stuff', 'refine', 'map_reduce', 'map_rerank'],
-                          help='Type of chain method to use.')
+    # Create collection subcommand
+    create_parser = subparsers.add_parser('create', help='Create a new collection.')
+    create_parser.add_argument('-C', '--collection-name', required=True, type=str, help='Name of the collection to create.')
+    create_parser.add_argument('-s', '--source', required=True, type=str, help='Path to folder containing documents.')
+    create_parser.add_argument('--recreate', action='store_true', help='Flag to recreate the collection if it already exists.')
 
-# Delete collection subcommand
-delete_parser = subparsers.add_parser('delete', help='Delete an existing collection.')
-delete_parser.add_argument('-C', '--collection-name', required=True, type=str, help='Name of the collection to delete.')
-delete_parser.add_argument('--force', action='store_true', help='Flag to forcefully delete the collection.')
+    # Query collection subcommand
+    query_parser = subparsers.add_parser('query', help='Query an existing collection.')
+    query_parser.add_argument('-C', '--collection-name', required=True, type=str, help='Name of the collection to RAG query.')
+    query_parser.add_argument('--query', required=True, type=str, help='Query to run against the collection.')
+    query_parser.add_argument(
+        '--chain-type',
+        default='stuff',
+        choices=['stuff', 'refine', 'map_reduce', 'map_rerank'],
+        help='Type of chain method to use.'
+    )
 
-# Check and Enable commands
-needs_priv = f"Needs privileged PGSQL env var to be set. See --pgenv-privileged."
-check_parser = subparsers.add_parser('pgvector-check', help=f'Check the PGSQL instance for pgvector extension. {needs_priv}')
-enable_parser = subparsers.add_parser('pgvector-enable', help=f'Enable pgvector extension on PGSQL instance. {needs_priv}')
+    # Delete collection subcommand
+    delete_parser = subparsers.add_parser('delete', help='Delete an existing collection.')
+    delete_parser.add_argument('-C', '--collection-name', required=True, type=str, help='Name of the collection to delete.')
+    delete_parser.add_argument('--force', action='store_true', help='Flag to forcefully delete the collection.')
 
-# List collection subcommand
-list_parser = subparsers.add_parser('list', help='List existing collections.')
+    # Check and Enable commands
+    needs_priv = "Needs privileged PGSQL env var to be set. See --pgenv-privileged."
+    subparsers.add_parser('pgvector-check', help=f'Check the PGSQL instance for pgvector extension. {needs_priv}')
+    subparsers.add_parser('pgvector-enable', help=f'Enable pgvector extension on PGSQL instance. {needs_priv}')
 
-args = parser.parse_args()
+    # List collection subcommand
+    subparsers.add_parser('list', help='List existing collections.')
+
+    args = parser.parse_args()
+
+    # TODO: for debug mode, probably?
+    args_dict = vars(args)
+    formatted_args = json.dumps(args_dict, indent=4)
+    print(f"CLI Arguments:\n{formatted_args}")
+
+    connection_string = get_pgsql_connection_string(args.pgenv)
+
+    # Command Handlers
+    if args.command == 'create':
+        create_pgvector_collection(connection_string, args.collection_name, args.source, recreate=args.recreate)
+    elif args.command == 'query':
+        query_pgvector_collection(connection_string, args.collection_name, args.query, chain_type=args.chain_type)
+
+    elif args.command == 'delete':
+        delete_pgvector_collection(connection_string, args.collection_name, force=args.force)
+
+    elif args.command == 'pgvector-check':
+        check_pgvector_extension(connection_string)
+
+    elif args.command == 'pgvector-enable':
+        enable_pgvector_extension(connection_string)
+
+    elif args.command == 'list':
+        list_pgvector_collections(connection_string)
+
+    else:
+        parser.print_help()
+        sys.exit(1)
 
 
-# TODO: for debug mode, probably?
-args_dict = vars(args)
-formatted_args = json.dumps(args_dict, indent=4)
-print(f"CLI Arguments:\n{formatted_args}")
-
-connection_string = get_pgsql_connection_string(args.pgenv)
-load_openai_api_key(args.openai_env)
-
-# Command Handlers
-if args.command == 'create':
-    create_pgvector_collection(connection_string, args.collection_name, args.source, recreate=args.recreate)
-
-elif args.command == 'query':
-    query_pgvector_collection(connection_string, args.collection_name, args.query, chain_type=args.chain_type)
-
-elif args.command == 'delete':
-    delete_pgvector_collection(connection_string, args.collection_name, force=args.force)
-
-elif args.command == 'pgvector-check':
-    check_pgvector_extension(connection_string)
-
-elif args.command == 'pgvector-enable':
-    enable_pgvector_extension(connection_string)
-
-elif args.command == 'list':
-    list_pgvector_collections(connection_string)
-
-else:
-    parser.print_help()
-    sys.exit(1)
+if __name__ == "__main__":
+    main()
